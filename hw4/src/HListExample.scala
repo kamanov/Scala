@@ -1,26 +1,34 @@
 object HListExample {
 
   sealed trait HList{
+    import HList._
+    def fold[R](f : (Any, R) => R, start : R) : R
 
-    def foldl[R](f : (Any, R) => R, start : R) : R
-    def foldr[R](f : (Any, R) => R, start : R) : R
-    def append[B <: HList](b : B) : HList = foldr[HList]((x, ls) =>  HCons(x, ls), b)
+    type RevListAppend[T <: HList] <: HList
+    def reverseSelfAndAppend[T <: HList](li : T) : RevListAppend[T]
+    def reverse() = this.reverseSelfAndAppend(HNil)
+    def append[A <: HList](ls : A) = reverse().reverseSelfAndAppend(ls)
   }
 
   final case class HCons[H, T <: HList](head: H, tail:T) extends HList {
     def ::[E](v : E) = HCons(v, this)
     override def toString = head + " :: " + tail
 
-    def foldl[R](f : (Any, R) => R, start : R) = tail.foldl(f, f.apply(head, start))
-    def foldr[R](f : (Any, R) => R, start : R) = f(head, tail.foldr(f, start))
+    def fold[R](f : (Any, R) => R, start : R) = tail.fold(f, f.apply(head, start))
+
+    type RevListAppend[Q <: HList] = T#RevListAppend[HCons[H, Q]]
+    def reverseSelfAndAppend[Q <: HList](ls : Q) = tail.reverseSelfAndAppend(HCons(head, ls))
+
   }
 
   final class HNil extends HList {
     def ::[T](v : T) = HCons(v, this)
     override def toString = "Nil"
 
-    def foldl[R](f : (Any, R) => R, start : R) = start
-    def foldr[R](f : (Any, R) => R, start : R) = start
+    def fold[R](f : (Any, R) => R, start : R) = start
+
+    type RevListAppend[Q <: HList] = Q
+    def reverseSelfAndAppend[Q <: HList](ls : Q) = ls
   }
 
   object HList {
@@ -37,12 +45,20 @@ object HListExample {
     }
 
     def length(x : HList) : Int = {
-      x.foldl((_, acc : Int) => acc + 1, 0)
+      x.fold((_, acc : Int) => acc + 1, 0)
+    }
+
+    def f[T](v: T) = v match {
+      case _: Int    => "Int"
+      case _: String => "String"
+      case _: Boolean => "Bool"
+      case _         => "Unknown"
     }
 
     val list1 = 1 :: false :: "Hi" :: HNil
-    val list2 = true :: "Bye" :: 0 :: HNil
-    println(length(list1))
+    val list2 = true :: "Bye" :: 0 :: true :: HNil
+    println(f(indexAt2ofT(list2.append(list1))))
+    println(length(list1.append(list2)))
     println(list1.append(list2))
 
   }
